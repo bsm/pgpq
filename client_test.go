@@ -66,7 +66,6 @@ func TestClient(t *testing.T) {
 		if _, err := client.Get(ctx, uuid.New()); !errors.Is(err, ErrNotFound) {
 			t.Errorf("expected %v, got %v", ErrNotFound, err)
 		}
-
 	})
 
 	t.Run("List", func(t *testing.T) {
@@ -98,7 +97,7 @@ func TestClient(t *testing.T) {
 		if err != nil {
 			t.Fatalf("expected no error, got %v", err)
 		}
-		defer claim1.Rollback(ctx)
+		defer claim1.Release(ctx)
 
 		// check claim
 		if exp, got := task1.ID, claim1.ID; exp != got {
@@ -110,7 +109,7 @@ func TestClient(t *testing.T) {
 		if err != nil {
 			t.Fatalf("expected no error, got %v", err)
 		}
-		defer claim2.Rollback(ctx)
+		defer claim2.Release(ctx)
 
 		// check claim
 		if exp, got := task2.ID, claim2.ID; exp != got {
@@ -134,7 +133,7 @@ func TestClient(t *testing.T) {
 		if err != nil {
 			t.Fatalf("expected no error, got %v", err)
 		}
-		defer claim3.Rollback(ctx)
+		defer claim3.Release(ctx)
 
 		// check claim
 		if exp, got := task2.ID, claim3.ID; exp != got {
@@ -151,13 +150,13 @@ func TestClient(t *testing.T) {
 		}
 	})
 
-	t.Run("Shift then Remove", func(t *testing.T) {
+	t.Run("Shift then Done", func(t *testing.T) {
 		// shift a task
 		claim, err := client.Shift(ctx)
 		if err != nil {
 			t.Fatalf("expected no error, got %v", err)
 		}
-		defer claim.Rollback(ctx)
+		defer claim.Release(ctx)
 
 		if tasks, err := client.List(ctx); err != nil {
 			t.Fatalf("expected no error, got %v", err)
@@ -165,7 +164,7 @@ func TestClient(t *testing.T) {
 			t.Errorf("expected %v, got %v", exp, got)
 		}
 
-		if err := claim.Remove(ctx); err != nil {
+		if err := claim.Done(ctx); err != nil {
 			t.Fatalf("expected no error, got %v", err)
 		}
 

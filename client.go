@@ -13,7 +13,7 @@ import (
 type Client struct {
 	db   *sql.DB
 	stmt struct {
-		push, pushWithID, get, shift, list, update, remove *sql.Stmt
+		push, pushWithID, get, shift, list, update, done *sql.Stmt
 	}
 	ownDB bool
 }
@@ -98,7 +98,7 @@ func (c *Client) Shift(ctx context.Context) (*Claim, error) {
 		return nil, err
 	}
 
-	claim := &Claim{tx: tx, update: c.stmt.update, remove: c.stmt.remove}
+	claim := &Claim{tx: tx, update: c.stmt.update, done: c.stmt.done}
 	row := tx.
 		StmtContext(ctx, c.stmt.shift).
 		QueryRowContext(ctx)
@@ -151,7 +151,7 @@ func (c *Client) Close() error {
 		c.stmt.shift,
 		c.stmt.list,
 		c.stmt.update,
-		c.stmt.remove,
+		c.stmt.done,
 	} {
 		if stmt != nil {
 			if e := stmt.Close(); e != nil {
@@ -182,7 +182,7 @@ func (c *Client) prepareStmt(ctx context.Context) (err error) {
 		return
 	} else if c.stmt.update, err = c.db.PrepareContext(ctx, stmtUpdate); err != nil {
 		return
-	} else if c.stmt.remove, err = c.db.PrepareContext(ctx, stmtRemove); err != nil {
+	} else if c.stmt.done, err = c.db.PrepareContext(ctx, stmtDone); err != nil {
 		return
 	}
 	return

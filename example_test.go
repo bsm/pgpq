@@ -53,14 +53,14 @@ func Example() {
 	if err != nil {
 		panic(err)
 	}
-	defer claim.Rollback(ctx)
+	defer claim.Release(ctx)
 
 	// print ID and payload
 	fmt.Println(claim.ID.String())
 	fmt.Println(string(claim.Payload))
 
-	// remove task from the queue
-	if err := claim.Remove(ctx); err != nil {
+	// mark task done and remove from the queue
+	if err := claim.Done(ctx); err != nil {
 		panic(err)
 	}
 

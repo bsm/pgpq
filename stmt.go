@@ -63,7 +63,7 @@ const (
 		WHERE id = $3
 	`
 
-	stmtRemove = `
+	stmtDone = `
 		DELETE FROM tasks
 		WHERE id = $1
 	`
