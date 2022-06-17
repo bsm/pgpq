@@ -63,8 +63,8 @@ func TestClient(t *testing.T) {
 			t.Errorf("expected to be set")
 		}
 
-		if _, err := client.Get(ctx, uuid.New()); !errors.Is(err, ErrNotFound) {
-			t.Errorf("expected %v, got %v", ErrNotFound, err)
+		if _, err := client.Get(ctx, uuid.New()); !errors.Is(err, ErrNoTask) {
+			t.Errorf("expected %v, got %v", ErrNoTask, err)
 		}
 	})
 
@@ -117,8 +117,8 @@ func TestClient(t *testing.T) {
 		}
 
 		// no more tasks left
-		if _, err := client.Shift(ctx); !errors.Is(err, ErrNotFound) {
-			t.Errorf("expected %v, got %v", ErrNotFound, err)
+		if _, err := client.Shift(ctx); !errors.Is(err, ErrNoTask) {
+			t.Errorf("expected %v, got %v", ErrNoTask, err)
 		}
 
 		// update claim
@@ -145,8 +145,8 @@ func TestClient(t *testing.T) {
 		}
 
 		// no more tasks left
-		if _, err := client.Shift(ctx); !errors.Is(err, ErrNotFound) {
-			t.Errorf("expected %v, got %v", ErrNotFound, err)
+		if _, err := client.Shift(ctx); !errors.Is(err, ErrNoTask) {
+			t.Errorf("expected %v, got %v", ErrNoTask, err)
 		}
 	})
 

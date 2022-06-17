@@ -11,8 +11,8 @@ import (
 var (
 	// ErrDuplicateID occurs when a task with the same ID already exists.
 	ErrDuplicateID = errors.New("duplicate ID")
-	// ErrNotFound is returned when there are no tasks in the queue.
-	ErrNotFound = errors.New("not found")
+	// ErrNoTask is returned when tasks cannot be found.
+	ErrNoTask = errors.New("no task")
 )
 
 // ----------------------------------------------------------------------------

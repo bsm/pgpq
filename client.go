@@ -77,13 +77,13 @@ func (c *Client) Push(ctx context.Context, task *Task) error {
 	return nil
 }
 
-// Get returns a task by ID. It may return ErrNotFound.
+// Get returns a task by ID. It may return ErrNoTask.
 func (c *Client) Get(ctx context.Context, id uuid.UUID) (*TaskDetails, error) {
 	td := new(TaskDetails)
 	row := c.stmt.get.QueryRowContext(ctx, id)
 	if err := td.scan(row); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return nil, ErrNotFound
+			return nil, ErrNoTask
 		}
 		return nil, err
 	}
@@ -91,7 +91,7 @@ func (c *Client) Get(ctx context.Context, id uuid.UUID) (*TaskDetails, error) {
 }
 
 // Shift locks and returns the task with the highest priority. It may return
-// ErrNotFound.
+// ErrNoTask.
 func (c *Client) Shift(ctx context.Context) (*Claim, error) {
 	tx, err := c.db.BeginTx(ctx, nil)
 	if err != nil {
@@ -106,7 +106,7 @@ func (c *Client) Shift(ctx context.Context) (*Claim, error) {
 		_ = tx.Rollback()
 
 		if errors.Is(err, sql.ErrNoRows) {
-			return nil, ErrNotFound
+			return nil, ErrNoTask
 		}
 		return nil, err
 	}
