@@ -1,4 +1,4 @@
 linters-settings:
   errcheck:
     exclude-functions:
-      - (*github.com/bsm/pgpq.Claim).NAck
+      - (*github.com/bsm/pgpq.Claim).Release

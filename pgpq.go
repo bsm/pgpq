@@ -11,8 +11,8 @@ import (
 var (
 	// ErrDuplicateID occurs when a task with the same ID already exists.
 	ErrDuplicateID = errors.New("duplicate ID")
-	// ErrNoTasks is returned when there are no tasks in the queue.
-	ErrNoTasks = errors.New("no tasks in the queue")
+	// ErrNoTask is returned when tasks cannot be found.
+	ErrNoTask = errors.New("no task")
 )
 
 // ----------------------------------------------------------------------------
@@ -68,7 +68,6 @@ type TaskDetails struct {
 	Task
 	CreatedAt time.Time
 	UpdatedAt time.Time
-	Attempts  int // number of previous claims
 }
 
 func (td *TaskDetails) scan(rows interface{ Scan(...interface{}) error }) error {
@@ -78,6 +77,5 @@ func (td *TaskDetails) scan(rows interface{ Scan(...interface{}) error }) error 
 		&td.Payload,
 		&td.CreatedAt,
 		&td.UpdatedAt,
-		&td.Attempts,
 	)
 }
