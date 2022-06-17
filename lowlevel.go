@@ -101,9 +101,9 @@ func createSchema(ctx context.Context, db *sql.DB) error {
 	return nil
 }
 
-func migrateSchema(_ context.Context, _ *sql.DB, current, target int32) error {
+func migrateSchema(ctx context.Context, db *sql.DB, current, target int32) error {
 	if current == target {
 		return nil
 	}
-	return fmt.Errorf("schema migration is not implemented")
+	return createSchema(ctx, db)
 }

@@ -34,11 +34,10 @@ func Connect(ctx context.Context, url string) (*Client, error) {
 	return client, nil
 }
 
-// Wrap wraps a database/sql.DB instance. Please note that calling Close() will not close
-// the underlying connection.
+// Wrap wraps an existing database/sql.DB instance. Please note that calling
+// Close() will not close the underlying connection.
 func Wrap(ctx context.Context, db *sql.DB) (*Client, error) {
 	if err := validateConn(ctx, db); err != nil {
-		_ = db.Close()
 		return nil, err
 	}
 
@@ -102,7 +101,7 @@ func (c *Client) Shift(ctx context.Context) (*Claim, error) {
 	if err := claim.TaskDetails.scan(row); err != nil {
 		_ = tx.Rollback()
 
-		if err == sql.ErrNoRows {
+		if errors.Is(err, sql.ErrNoRows) {
 			return nil, ErrNoTasks
 		}
 		return nil, err
