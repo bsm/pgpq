@@ -90,12 +90,12 @@ func schemaVersion(ctx context.Context, db *sql.DB) (version int32, err error) {
 func createSchema(ctx context.Context, db *sql.DB) error {
 	rawSQL, err := embedFS.ReadFile("schema.sql")
 	if err != nil {
-		return fmt.Errorf("schema creation failed with %w", err)
+		return fmt.Errorf("schema migration failed with %w", err)
 	}
 
 	_, err = db.ExecContext(ctx, string(rawSQL))
 	if err != nil {
-		return fmt.Errorf("schema creation failed with %w", err)
+		return fmt.Errorf("schema migration failed with %w", err)
 	}
 
 	return nil
