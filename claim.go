@@ -10,33 +10,33 @@ import (
 // claim.
 type Claim struct {
 	TaskDetails
-	tx *sql.Tx
+	tx             *sql.Tx
+	update, remove *sql.Stmt
 }
 
-// NAck returns the task back to the queue.
-func (tc *Claim) NAck(ctx context.Context) error {
-	_, err := tc.tx.ExecContext(ctx, `
-		UPDATE tasks
-		SET attempts = attempts + 1,
-				updated_at = NOW()
-		WHERE id = $1
-	`, tc.ID)
+// Release releases the claim and returns the task back to the queue.
+func (tc *Claim) Rollback(ctx context.Context) error {
+	return tc.tx.Rollback()
+}
+
+// Update updates Payload, Priority and UpdatedAt and returns the task back to the queue.
+func (tc *Claim) Update(ctx context.Context) error {
+	_, err := tc.tx.
+		StmtContext(ctx, tc.update).
+		ExecContext(ctx, tc.Priority, tc.Payload, tc.ID)
 	if err != nil {
-		_ = tc.tx.Rollback()
 		return err
 	}
 
 	return tc.tx.Commit()
 }
 
-// Ack removes the task from the queue.
-func (tc *Claim) Ack(ctx context.Context) error {
-	_, err := tc.tx.ExecContext(ctx, `
-		DELETE FROM tasks
-		WHERE id = $1
-	`, tc.ID)
+// Remove removes the task from the queue.
+func (tc *Claim) Remove(ctx context.Context) error {
+	_, err := tc.tx.
+		StmtContext(ctx, tc.remove).
+		ExecContext(ctx, tc.ID)
 	if err != nil {
-		_ = tc.tx.Rollback()
 		return err
 	}
 

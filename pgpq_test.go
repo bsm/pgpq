@@ -3,7 +3,6 @@ package pgpq_test
 import (
 	"bytes"
 	"context"
-	"database/sql"
 	"encoding/json"
 	"os"
 	"testing"
@@ -18,10 +17,7 @@ var (
 	mockNow  = time.Now().UTC().Truncate(24 * time.Hour)
 )
 
-var (
-	testDB *testDBConn
-	client *Client
-)
+var client *Client
 
 func TestMain(m *testing.M) {
 	ctx := context.Background()
@@ -30,22 +26,14 @@ func TestMain(m *testing.M) {
 		url = v
 	}
 
-	db, err := sql.Open("postgres", url)
-	if err != nil {
-		panic(err)
-	}
-	testDB = &testDBConn{DB: db}
-
-	client, err = Wrap(ctx, db)
+	var err error
+	client, err = Connect(ctx, url)
 	if err != nil {
 		panic(err)
 	}
 
 	code := m.Run()
 	if err := client.Close(); err != nil {
-		panic(err)
-	}
-	if err := db.Close(); err != nil {
 		panic(err)
 	}
 
@@ -60,15 +48,6 @@ func assertEqual(t *testing.T, got, exp interface{}) {
 	if !bytes.Equal(expj, gotj) {
 		t.Fatalf("\nexpected: %s,\n     got: %s", expj, gotj)
 	}
-}
-
-type testDBConn struct {
-	*sql.DB
-}
-
-func (db *testDBConn) Truncate(ctx context.Context) error {
-	_, err := db.ExecContext(ctx, `TRUNCATE TABLE tasks`)
-	return err
 }
 
 func normTaskDetails(tds ...*TaskDetails) {

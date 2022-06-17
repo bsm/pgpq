@@ -23,6 +23,11 @@ func Example() {
 	}
 	defer client.Close()
 
+	// truncate the queue, for testing only
+	if err := client.Truncate(ctx); err != nil {
+		panic(err)
+	}
+
 	// push three tasks into the queue
 	if err := client.Push(ctx, &pgpq.Task{
 		Priority: 3,
@@ -43,19 +48,19 @@ func Example() {
 		panic(err)
 	}
 
-	// acquire a claim to the first item in the queue
+	// shift the task with the highest priority from the queue
 	claim, err := client.Shift(ctx)
 	if err != nil {
 		panic(err)
 	}
-	defer claim.NAck(ctx)
+	defer claim.Rollback(ctx)
 
 	// print ID and payload
 	fmt.Println(claim.ID.String())
 	fmt.Println(string(claim.Payload))
 
-	// ack the claim, remove task from the queue
-	if err := claim.Ack(ctx); err != nil {
+	// remove task from the queue
+	if err := claim.Remove(ctx); err != nil {
 		panic(err)
 	}
 
