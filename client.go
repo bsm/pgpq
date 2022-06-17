@@ -162,7 +162,7 @@ func (c *Client) Close() error {
 
 	if c.ownDB {
 		if e := c.db.Close(); e != nil {
-			err = c.db.Close()
+			err = e
 		}
 	}
 
