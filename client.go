@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/lib/pq"
@@ -56,6 +57,27 @@ func Wrap(ctx context.Context, db *sql.DB) (*Client, error) {
 func (c *Client) Truncate(ctx context.Context) error {
 	_, err := c.db.ExecContext(ctx, `TRUNCATE TABLE tasks`)
 	return err
+}
+
+// Len returns the queue length. This includes pending and running tasks.
+func (c *Client) Len(ctx context.Context) (int64, error) {
+	var cnt int64
+	if err := c.db.QueryRowContext(ctx, `SELECT COUNT(*) FROM tasks`).Scan(&cnt); err != nil {
+		return 0, err
+	}
+	return cnt, nil
+}
+
+// MinCreatedAt returns created timestamp of the oldest task in the queue. It
+// may return ErrNoTask.
+func (c *Client) MinCreatedAt(ctx context.Context) (time.Time, error) {
+	var ts pq.NullTime
+	if err := c.db.QueryRowContext(ctx, `SELECT MIN(created_at) FROM tasks`).Scan(&ts); err != nil {
+		return ts.Time, err
+	} else if !ts.Valid {
+		return ts.Time, ErrNoTask
+	}
+	return ts.Time, nil
 }
 
 // Push pushes a task into the queue. It may return ErrDuplicateID.

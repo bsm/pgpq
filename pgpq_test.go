@@ -40,6 +40,15 @@ func TestMain(m *testing.M) {
 	os.Exit(code)
 }
 
+func Test_schemaVersion(t *testing.T) {
+	version, err := client.SchemaVersion(context.Background())
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	} else if exp, got := "2", version; exp != got {
+		t.Errorf("expected %v, got %v", exp, got)
+	}
+}
+
 func assertEqual(t *testing.T, got, exp interface{}) {
 	t.Helper()
 
@@ -48,6 +57,33 @@ func assertEqual(t *testing.T, got, exp interface{}) {
 	if !bytes.Equal(expj, gotj) {
 		t.Fatalf("\nexpected: %s,\n     got: %s", expj, gotj)
 	}
+}
+
+func seedPair(ctx context.Context, t *testing.T) (*Task, *Task) {
+	t.Helper()
+
+	if err := client.Truncate(ctx); err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+
+	task1 := &Task{
+		ID:       mockUUID,
+		Priority: 3,
+		Payload:  []byte(`{"foo":1}`),
+	}
+	task2 := &Task{
+		Priority: 2,
+		Payload:  []byte(`{"bar":2}`),
+	}
+
+	if err := client.Push(ctx, task1); err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+	if err := client.Push(ctx, task2); err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+
+	return task1, task2
 }
 
 func normTaskDetails(tds ...*TaskDetails) {
