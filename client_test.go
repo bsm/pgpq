@@ -216,7 +216,7 @@ func TestClient_MinCreatedAt(t *testing.T) {
 
 	if got, err := client.MinCreatedAt(ctx); err != nil {
 		t.Fatalf("expected no error, got %v", err)
-	} else if exp := td1.CreatedAt; exp != got {
+	} else if exp := td1.CreatedAt; !exp.Equal(got) {
 		t.Errorf("expected %v, got %v", exp, got)
 	}
 
@@ -226,7 +226,7 @@ func TestClient_MinCreatedAt(t *testing.T) {
 
 	if got, err := client.MinCreatedAt(ctx); err != nil {
 		t.Fatalf("expected no error, got %v", err)
-	} else if exp := td2.CreatedAt; exp != got {
+	} else if exp := td2.CreatedAt; !exp.Equal(got) {
 		t.Errorf("expected %v, got %v", exp, got)
 	}
 
