@@ -5,6 +5,11 @@ SET
   client_min_messages TO ERROR;
 
 --
+-- Require pgcrypto extension
+--
+CREATE EXTENSION IF NOT EXISTS pgcrypto;
+
+--
 -- Tasks table
 --
 CREATE TABLE IF NOT EXISTS tasks (
@@ -16,6 +21,8 @@ CREATE TABLE IF NOT EXISTS tasks (
 );
 
 CREATE INDEX IF NOT EXISTS idx_tasks_priority_order ON tasks (priority DESC, updated_at ASC);
+
+CREATE INDEX IF NOT EXISTS idx_tasks_created_at ON tasks (created_at ASC);
 
 --
 -- Meta info table
@@ -29,4 +36,7 @@ CREATE TABLE IF NOT EXISTS meta_info (
 INSERT INTO
   meta_info
 VALUES
-  ('schema_version', '1') ON CONFLICT (name) DO NOTHING;
+  ('schema_version', '2') ON CONFLICT (name) DO
+UPDATE
+SET
+  value = EXCLUDED.value;
