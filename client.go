@@ -14,7 +14,7 @@ import (
 type Client struct {
 	db   *sql.DB
 	stmt struct {
-		push, pushWithID, get, shift, list, update, done *sql.Stmt
+		push, pushWithID, get, claim, shift, list, update, done *sql.Stmt
 	}
 	ownDB bool
 }
@@ -112,6 +112,28 @@ func (c *Client) Get(ctx context.Context, id uuid.UUID) (*TaskDetails, error) {
 	return td, nil
 }
 
+// Claim locks and returns the task with the given ID. It may return ErrNoTask.
+func (c *Client) Claim(ctx context.Context, id uuid.UUID) (*Claim, error) {
+	tx, err := c.db.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	claim := &Claim{tx: tx, update: c.stmt.update, done: c.stmt.done}
+	row := tx.
+		StmtContext(ctx, c.stmt.claim).
+		QueryRowContext(ctx, id)
+	if err := claim.TaskDetails.scan(row); err != nil {
+		_ = tx.Rollback()
+
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, ErrNoTask
+		}
+		return nil, err
+	}
+	return claim, nil
+}
+
 // Shift locks and returns the task with the highest priority. It may return
 // ErrNoTask.
 func (c *Client) Shift(ctx context.Context) (*Claim, error) {
@@ -170,6 +192,7 @@ func (c *Client) Close() error {
 		c.stmt.push,
 		c.stmt.pushWithID,
 		c.stmt.get,
+		c.stmt.claim,
 		c.stmt.shift,
 		c.stmt.list,
 		c.stmt.update,
@@ -197,6 +220,8 @@ func (c *Client) prepareStmt(ctx context.Context) (err error) {
 	} else if c.stmt.pushWithID, err = c.db.PrepareContext(ctx, stmtPushWithID); err != nil {
 		return
 	} else if c.stmt.get, err = c.db.PrepareContext(ctx, stmtGet); err != nil {
+		return
+	} else if c.stmt.claim, err = c.db.PrepareContext(ctx, stmtClaim); err != nil {
 		return
 	} else if c.stmt.shift, err = c.db.PrepareContext(ctx, stmtShift); err != nil {
 		return

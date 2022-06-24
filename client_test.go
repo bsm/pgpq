@@ -80,6 +80,33 @@ func TestClient_List(t *testing.T) {
 	})
 }
 
+func TestClient_Claim(t *testing.T) {
+	ctx := context.Background()
+	_, task2 := seedPair(ctx, t)
+
+	// shift task #2
+	claim1, err := client.Claim(ctx, task2.ID)
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+	defer claim1.Release(ctx)
+
+	// check claim
+	if exp, got := task2.ID, claim1.ID; exp != got {
+		t.Errorf("expected %v, got %v", exp, got)
+	}
+
+	// try again
+	if _, err := client.Claim(ctx, task2.ID); !errors.Is(err, ErrNoTask) {
+		t.Errorf("expected %v, got %v", ErrNoTask, err)
+	}
+
+	// try non-existent
+	if _, err := client.Claim(ctx, uuid.New()); !errors.Is(err, ErrNoTask) {
+		t.Errorf("expected %v, got %v", ErrNoTask, err)
+	}
+}
+
 func TestClient_Shift(t *testing.T) {
 	ctx := context.Background()
 	task1, task2 := seedPair(ctx, t)

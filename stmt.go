@@ -39,6 +39,19 @@ const (
 		LIMIT 1
 	`
 
+	stmtClaim = `
+		SELECT
+			id,
+			priority,
+			payload,
+			created_at,
+			updated_at
+		FROM tasks
+		WHERE id = $1
+		FOR UPDATE SKIP LOCKED
+		LIMIT 1
+	`
+
 	stmtList = `
 		SELECT
 			id,
