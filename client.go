@@ -3,6 +3,7 @@ package pgpq
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"errors"
 	"time"
 
@@ -55,24 +56,42 @@ func Wrap(ctx context.Context, db *sql.DB) (*Client, error) {
 // Truncate truncates the queue and deletes all tasks. Intended for testing,
 // please use with care.
 func (c *Client) Truncate(ctx context.Context) error {
-	_, err := c.db.ExecContext(ctx, `TRUNCATE TABLE tasks`)
+	_, err := c.db.ExecContext(ctx, `TRUNCATE TABLE pgpq_tasks`)
 	return err
 }
 
 // Len returns the queue length. This includes pending and running tasks.
-func (c *Client) Len(ctx context.Context) (int64, error) {
+func (c *Client) Len(ctx context.Context, opts ...ScopeOption) (int64, error) {
 	var cnt int64
-	if err := c.db.QueryRowContext(ctx, `SELECT COUNT(*) FROM tasks`).Scan(&cnt); err != nil {
-		return 0, err
+
+	opt := new(scopeOptions)
+	opt.Set(opts...)
+	if err := opt.Namespace.validate(); err != nil {
+		return cnt, err
+	}
+
+	if err := c.db.
+		QueryRowContext(ctx, `SELECT COUNT(*) FROM pgpq_tasks WHERE namespace = $1`, opt.Namespace).
+		Scan(&cnt); err != nil {
+		return cnt, err
 	}
 	return cnt, nil
 }
 
 // MinCreatedAt returns created timestamp of the oldest task in the queue. It
 // may return ErrNoTask.
-func (c *Client) MinCreatedAt(ctx context.Context) (time.Time, error) {
+func (c *Client) MinCreatedAt(ctx context.Context, opts ...ScopeOption) (time.Time, error) {
 	var ts pq.NullTime
-	if err := c.db.QueryRowContext(ctx, `SELECT MIN(created_at) FROM tasks`).Scan(&ts); err != nil {
+
+	opt := new(scopeOptions)
+	opt.Set(opts...)
+	if err := opt.Namespace.validate(); err != nil {
+		return ts.Time, err
+	}
+
+	if err := c.db.
+		QueryRowContext(ctx, `SELECT MIN(created_at) FROM pgpq_tasks WHERE namespace = $1`, opt.Namespace).
+		Scan(&ts); err != nil {
 		return ts.Time, err
 	} else if !ts.Valid {
 		return ts.Time, ErrNoTask
@@ -82,16 +101,24 @@ func (c *Client) MinCreatedAt(ctx context.Context) (time.Time, error) {
 
 // Push pushes a task into the queue. It may return ErrDuplicateID.
 func (c *Client) Push(ctx context.Context, task *Task) error {
+	if err := task.validate(); err != nil {
+		return err
+	}
+
+	if len(task.Payload) == 0 {
+		task.Payload = json.RawMessage{'{', '}'}
+	}
+
 	var row *sql.Row
 	if task.ID == uuid.Nil {
-		row = c.stmt.push.QueryRowContext(ctx, task.Priority, task.Payload)
+		row = c.stmt.push.QueryRowContext(ctx, task.Namespace, task.Priority, task.Payload)
 	} else {
-		row = c.stmt.pushWithID.QueryRowContext(ctx, task.ID, task.Priority, task.Payload)
+		row = c.stmt.pushWithID.QueryRowContext(ctx, task.ID, task.Namespace, task.Priority, task.Payload)
 	}
 
 	if err := row.Scan(&task.ID); err != nil {
 		var dbErr *pq.Error
-		if errors.As(err, &dbErr) && dbErr.Code == "23505" && dbErr.Constraint == "tasks_pkey" {
+		if errors.As(err, &dbErr) && dbErr.Code == "23505" && dbErr.Constraint == "pgpq_tasks_pkey" {
 			return ErrDuplicateID
 		}
 		return err
@@ -136,7 +163,13 @@ func (c *Client) Claim(ctx context.Context, id uuid.UUID) (*Claim, error) {
 
 // Shift locks and returns the task with the highest priority. It may return
 // ErrNoTask.
-func (c *Client) Shift(ctx context.Context) (*Claim, error) {
+func (c *Client) Shift(ctx context.Context, opts ...ScopeOption) (*Claim, error) {
+	opt := new(scopeOptions)
+	opt.Set(opts...)
+	if err := opt.Namespace.validate(); err != nil {
+		return nil, err
+	}
+
 	tx, err := c.db.BeginTx(ctx, nil)
 	if err != nil {
 		return nil, err
@@ -145,7 +178,7 @@ func (c *Client) Shift(ctx context.Context) (*Claim, error) {
 	claim := &Claim{tx: tx, update: c.stmt.update, done: c.stmt.done}
 	row := tx.
 		StmtContext(ctx, c.stmt.shift).
-		QueryRowContext(ctx)
+		QueryRowContext(ctx, opt.Namespace)
 	if err := claim.TaskDetails.scan(row); err != nil {
 		_ = tx.Rollback()
 
@@ -161,9 +194,12 @@ func (c *Client) Shift(ctx context.Context) (*Claim, error) {
 func (c *Client) List(ctx context.Context, opts ...ListOption) ([]*TaskDetails, error) {
 	opt := new(listOptions)
 	opt.Set(opts...)
+	if err := opt.Namespace.validate(); err != nil {
+		return nil, err
+	}
 	limit := opt.GetLimit()
 
-	rows, err := c.stmt.list.QueryContext(ctx, limit, opt.Offset)
+	rows, err := c.stmt.list.QueryContext(ctx, opt.Namespace, limit, opt.Offset)
 	if err != nil {
 		return nil, err
 	}

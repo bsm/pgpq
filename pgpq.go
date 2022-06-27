@@ -3,6 +3,7 @@ package pgpq
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"time"
 
 	"github.com/google/uuid"
@@ -18,8 +19,9 @@ var (
 // ----------------------------------------------------------------------------
 
 type listOptions struct {
-	Offset int64
-	Limit  int64
+	Offset    int64
+	Limit     int64
+	Namespace namespace
 }
 
 func (o *listOptions) GetLimit() int64 {
@@ -31,18 +33,18 @@ func (o *listOptions) GetLimit() int64 {
 
 func (o *listOptions) Set(opts ...ListOption) {
 	for _, opt := range opts {
-		opt.applyOption(o)
+		opt.applyListOption(o)
 	}
 }
 
 // ListOption can be applied when listing tasks.
 type ListOption interface {
-	applyOption(*listOptions)
+	applyListOption(*listOptions)
 }
 
 type listOptionFunc func(*listOptions)
 
-func (f listOptionFunc) applyOption(o *listOptions) { f(o) }
+func (f listOptionFunc) applyListOption(o *listOptions) { f(o) }
 
 // WithOffset applies an offset to the list.
 func WithOffset(v int64) ListOption {
@@ -56,11 +58,61 @@ func WithLimit(v int64) ListOption {
 
 // ----------------------------------------------------------------------------
 
+type scopeOptions struct {
+	Namespace namespace
+}
+
+func (o *scopeOptions) Set(opts ...ScopeOption) {
+	for _, opt := range opts {
+		opt.applyScopeOption(o)
+	}
+}
+
+// ScopeOption can be applied when scoping results.
+type ScopeOption interface {
+	applyScopeOption(*scopeOptions)
+}
+
+// ----------------------------------------------------------------------------
+
+type namespace string
+
+func (ns namespace) validate() error {
+	for i := range ns {
+		if b := ns[i]; b >= 0x80 {
+			return fmt.Errorf("namespace %q contains non-ASCII characters", ns)
+		}
+	}
+	return nil
+}
+
+func (ns namespace) applyListOption(o *listOptions)   { o.Namespace = ns }
+func (ns namespace) applyScopeOption(o *scopeOptions) { o.Namespace = ns }
+
+// NamespaceOption can be used in different methods.
+type NamespaceOption interface {
+	ListOption
+	ScopeOption
+}
+
+// WithNamespace restricts a client to a particular namespace. Namespaces must
+// contain ASCII characters only.
+func WithNamespace(ns string) NamespaceOption {
+	return namespace(ns)
+}
+
+// ----------------------------------------------------------------------------
+
 // Task contains the task definition.
 type Task struct {
-	ID       uuid.UUID
-	Priority int16
-	Payload  json.RawMessage
+	ID        uuid.UUID
+	Namespace string
+	Priority  int16
+	Payload   json.RawMessage
+}
+
+func (t *Task) validate() error {
+	return namespace(t.Namespace).validate()
 }
 
 // TaskDetails contains detailed task information.
@@ -73,6 +125,7 @@ type TaskDetails struct {
 func (td *TaskDetails) scan(rows interface{ Scan(...interface{}) error }) error {
 	return rows.Scan(
 		&td.ID,
+		&td.Namespace,
 		&td.Priority,
 		&td.Payload,
 		&td.CreatedAt,

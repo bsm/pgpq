@@ -44,7 +44,7 @@ func Test_schemaVersion(t *testing.T) {
 	version, err := client.SchemaVersion(context.Background())
 	if err != nil {
 		t.Fatalf("expected no error, got %v", err)
-	} else if exp, got := "2", version; exp != got {
+	} else if exp, got := "3", version; exp != got {
 		t.Errorf("expected %v, got %v", exp, got)
 	}
 }
@@ -59,7 +59,7 @@ func assertEqual(t *testing.T, got, exp interface{}) {
 	}
 }
 
-func seedPair(ctx context.Context, t *testing.T) (*Task, *Task) {
+func seedTriple(ctx context.Context, t *testing.T) (*Task, *Task, *Task) {
 	t.Helper()
 
 	if err := client.Truncate(ctx); err != nil {
@@ -75,6 +75,9 @@ func seedPair(ctx context.Context, t *testing.T) (*Task, *Task) {
 		Priority: 2,
 		Payload:  []byte(`{"bar":2}`),
 	}
+	task3 := &Task{
+		Namespace: "baz",
+	}
 
 	if err := client.Push(ctx, task1); err != nil {
 		t.Fatalf("expected no error, got %v", err)
@@ -82,8 +85,11 @@ func seedPair(ctx context.Context, t *testing.T) (*Task, *Task) {
 	if err := client.Push(ctx, task2); err != nil {
 		t.Fatalf("expected no error, got %v", err)
 	}
+	if err := client.Push(ctx, task3); err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
 
-	return task1, task2
+	return task1, task2, task3
 }
 
 func normTaskDetails(tds ...*TaskDetails) {

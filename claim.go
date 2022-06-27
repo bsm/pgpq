@@ -19,11 +19,16 @@ func (tc *Claim) Release(_ context.Context) error {
 	return tc.tx.Rollback()
 }
 
-// Update updates Payload, Priority, UpdatedAt and returns the task back to the queue.
+// Update updates Namespace, Payload, Priority, UpdatedAt and returns the task
+// back to the queue.
 func (tc *Claim) Update(ctx context.Context) error {
+	if err := tc.validate(); err != nil {
+		return err
+	}
+
 	_, err := tc.tx.
 		StmtContext(ctx, tc.update).
-		ExecContext(ctx, tc.Priority, tc.Payload, tc.ID)
+		ExecContext(ctx, tc.Namespace, tc.Priority, tc.Payload, tc.ID)
 	if err != nil {
 		return err
 	}
