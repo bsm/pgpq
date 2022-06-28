@@ -12,7 +12,7 @@ import (
 //go:embed schema.sql
 var embedFS embed.FS
 
-const targetVersion = 2
+const targetVersion = 3
 
 func validateConn(ctx context.Context, db *sql.DB) error {
 	if err := checkServerVersion(ctx, db); err != nil {
@@ -69,7 +69,7 @@ func tableExists(ctx context.Context, db *sql.DB, table string) (bool, error) {
 
 // schemaVersion returns the stored schema version.
 func schemaVersion(ctx context.Context, db *sql.DB) (version int32, err error) {
-	if ok, err := tableExists(ctx, db, "meta_info"); err != nil {
+	if ok, err := tableExists(ctx, db, "pgpq_meta_info"); err != nil {
 		return 0, err
 	} else if !ok {
 		return 0, nil
@@ -77,7 +77,7 @@ func schemaVersion(ctx context.Context, db *sql.DB) (version int32, err error) {
 
 	if err = db.QueryRowContext(ctx, `
 		SELECT COALESCE(value::int, 0) AS version
-		FROM meta_info
+		FROM pgpq_meta_info
 		WHERE name = $1
 	`, "schema_version").Scan(&version); err == sql.ErrNoRows {
 		return 0, nil
