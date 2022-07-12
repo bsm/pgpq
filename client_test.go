@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"reflect"
 	"testing"
 
 	. "github.com/bsm/pgpq"
@@ -325,30 +324,6 @@ func TestClient_MinCreatedAt(t *testing.T) {
 
 	if _, err := client.MinCreatedAt(ctx); !errors.Is(err, ErrNoTask) {
 		t.Errorf("expected %v, got %v", ErrNoTask, err)
-	}
-}
-
-func TestClient_Stats(t *testing.T) {
-	ctx := context.Background()
-	task1, _, task3 := seedTriple(ctx, t)
-
-	td1, err := client.Get(ctx, task1.ID)
-	if err != nil {
-		t.Fatalf("expected no error, got %v", err)
-	}
-	td3, err := client.Get(ctx, task3.ID)
-	if err != nil {
-		t.Fatalf("expected no error, got %v", err)
-	}
-
-	exp := []*Stat{
-		{Namespace: "", Len: 2, MinCreatedAt: td1.CreatedAt},
-		{Namespace: "baz", Len: 1, MinCreatedAt: td3.CreatedAt},
-	}
-	if got, err := client.Stats(ctx); err != nil {
-		t.Fatalf("expected no error, got %v", err)
-	} else if !reflect.DeepEqual(exp, got) {
-		t.Errorf("expected %v, got %v", exp, got)
 	}
 }
 

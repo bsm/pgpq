@@ -132,20 +132,3 @@ func (td *TaskDetails) scan(rows interface{ Scan(...interface{}) error }) error 
 		&td.UpdatedAt,
 	)
 }
-
-// ----------------------------------------------------------------------------
-
-// Stat is a per-namespace queue statistics record.
-type Stat struct {
-	Namespace    string
-	Len          int
-	MinCreatedAt time.Time
-}
-
-func (s *Stat) scan(rows interface{ Scan(...interface{}) error }) error {
-	return rows.Scan(
-		&s.Namespace,
-		&s.Len,
-		&s.MinCreatedAt,
-	)
-}
