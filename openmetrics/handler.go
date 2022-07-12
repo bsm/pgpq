@@ -17,6 +17,7 @@ type Client interface {
 }
 
 // NewHandler constructs a new handler to serve queue metrics in OpenMetrics format.
+// It will serve stats either for provided namespaces or for default (empty) one.
 func NewHandler(client Client, namespaces ...string) http.Handler {
 	if len(namespaces) == 0 {
 		namespaces = append(namespaces, "") // default namespace
