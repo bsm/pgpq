@@ -345,13 +345,9 @@ func TestClient_Stats(t *testing.T) {
 		{Namespace: "", Len: 2, MinCreatedAt: td1.CreatedAt},
 		{Namespace: "baz", Len: 1, MinCreatedAt: td3.CreatedAt},
 	}
-
-	got, err := client.Stats(ctx)
-	if err != nil {
+	if got, err := client.Stats(ctx); err != nil {
 		t.Fatalf("expected no error, got %v", err)
-	}
-
-	if !reflect.DeepEqual(exp, got) {
+	} else if !reflect.DeepEqual(exp, got) {
 		t.Errorf("expected %v, got %v", exp, got)
 	}
 }
