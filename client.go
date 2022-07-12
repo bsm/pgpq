@@ -99,6 +99,36 @@ func (c *Client) MinCreatedAt(ctx context.Context, opts ...ScopeOption) (time.Ti
 	return ts.Time, nil
 }
 
+// Stats returns the queue stats.
+func (c *Client) Stats(ctx context.Context) ([]*Stat, error) {
+	rows, err := c.db.QueryContext(ctx, `
+		SELECT
+			namespace,
+			COUNT(*),
+			MIN(created_at)
+		FROM pgpq_tasks
+		GROUP BY namespace
+		ORDER BY namespace ASC
+	`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	stats := make([]*Stat, 0, 10)
+	for rows.Next() {
+		s := new(Stat)
+		if err := s.scan(rows); err != nil {
+			return nil, err
+		}
+		stats = append(stats, s)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return stats, nil
+}
+
 // Push pushes a task into the queue. It may return ErrDuplicateID.
 func (c *Client) Push(ctx context.Context, task *Task) error {
 	if err := task.validate(); err != nil {
