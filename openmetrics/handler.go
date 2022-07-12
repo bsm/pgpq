@@ -39,8 +39,8 @@ func NewHandler(client Client) http.Handler {
 		_, _ = fmt.Fprintf(w, "# TYPE queue_oldest_message_age_seconds gauge\n")
 		_, _ = fmt.Fprintf(w, "# HELP queue_oldest_message_age_seconds Oldest message age in seconds.\n")
 		for _, s := range stats {
-			age := now.Sub(s.MinCreatedAt)
-			_, _ = fmt.Fprintf(w, "queue_oldest_message_age_seconds{namespace=%q} %d\n", s.Namespace, int(age.Seconds()))
+			age := int(now.Sub(s.MinCreatedAt).Seconds())
+			_, _ = fmt.Fprintf(w, "queue_oldest_message_age_seconds{namespace=%q} %d\n", s.Namespace, age)
 		}
 	})
 }
