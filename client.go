@@ -55,8 +55,14 @@ func Wrap(ctx context.Context, db *sql.DB) (*Client, error) {
 
 // Truncate truncates the queue and deletes all tasks. Intended for testing,
 // please use with care.
-func (c *Client) Truncate(ctx context.Context) error {
-	_, err := c.db.ExecContext(ctx, `TRUNCATE TABLE pgpq_tasks`)
+func (c *Client) Truncate(ctx context.Context, opts ...ScopeOption) error {
+	opt := new(scopeOptions)
+	opt.Set(opts...)
+	if err := opt.Namespace.validate(); err != nil {
+		return err
+	}
+
+	_, err := c.db.ExecContext(ctx, `DELETE FROM pgpq_tasks WHERE namespace = $1`, opt.Namespace)
 	return err
 }
 

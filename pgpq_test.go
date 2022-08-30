@@ -65,6 +65,9 @@ func seedTriple(ctx context.Context, t *testing.T) (*Task, *Task, *Task) {
 	if err := client.Truncate(ctx); err != nil {
 		t.Fatalf("expected no error, got %v", err)
 	}
+	if err := client.Truncate(ctx, WithNamespace("baz")); err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
 
 	task1 := &Task{
 		ID:       mockUUID,
