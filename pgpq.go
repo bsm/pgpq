@@ -24,17 +24,21 @@ type listOptions struct {
 	Namespace namespace
 }
 
-func (o *listOptions) GetLimit() int64 {
+func (o *listOptions) getLimit() int64 {
 	if o.Limit == 0 {
 		return 100
 	}
 	return o.Limit
 }
 
-func (o *listOptions) Set(opts ...ListOption) {
+func (o *listOptions) set(opts ...ListOption) {
 	for _, opt := range opts {
 		opt.applyListOption(o)
 	}
+}
+
+func (o *listOptions) validate() error {
+	return o.Namespace.validate()
 }
 
 // ListOption can be applied when listing tasks.
@@ -62,10 +66,14 @@ type scopeOptions struct {
 	Namespace namespace
 }
 
-func (o *scopeOptions) Set(opts ...ScopeOption) {
+func (o *scopeOptions) set(opts ...ScopeOption) {
 	for _, opt := range opts {
 		opt.applyScopeOption(o)
 	}
+}
+
+func (o *scopeOptions) validate() error {
+	return o.Namespace.validate()
 }
 
 // ScopeOption can be applied when scoping results.
