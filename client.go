@@ -17,19 +17,20 @@ type Client struct {
 	stmt struct {
 		push, pushWithID, get, claim, shift, list, update, done *sql.Stmt
 	}
+	opt   *scopeOptions
 	ownDB bool
 }
 
 // Connect connects to a PG instance using a URL.
 // Example:
 //   postgres://user:secret@test.host:5432/mydb?sslmode=verify-ca
-func Connect(ctx context.Context, url string) (*Client, error) {
+func Connect(ctx context.Context, url string, opts ...ScopeOption) (*Client, error) {
 	db, err := sql.Open("postgres", url)
 	if err != nil {
 		return nil, err
 	}
 
-	client, err := Wrap(ctx, db)
+	client, err := Wrap(ctx, db, opts...)
 	if err != nil {
 		_ = db.Close()
 		return nil, err
@@ -40,12 +41,18 @@ func Connect(ctx context.Context, url string) (*Client, error) {
 
 // Wrap wraps an existing database/sql.DB instance. Please note that calling
 // Close() will not close the underlying connection.
-func Wrap(ctx context.Context, db *sql.DB) (*Client, error) {
+func Wrap(ctx context.Context, db *sql.DB, opts ...ScopeOption) (*Client, error) {
+	opt := &scopeOptions{}
+	opt.Set(opts...)
+	if err := opt.Namespace.validate(); err != nil {
+		return nil, err
+	}
+
 	if err := validateConn(ctx, db); err != nil {
 		return nil, err
 	}
 
-	c := &Client{db: db}
+	c := &Client{db: db, opt: opt}
 	if err := c.prepareStmt(ctx); err != nil {
 		_ = c.Close()
 		return nil, err
@@ -56,7 +63,7 @@ func Wrap(ctx context.Context, db *sql.DB) (*Client, error) {
 // Truncate truncates the queue and deletes all tasks. Intended for testing,
 // please use with care.
 func (c *Client) Truncate(ctx context.Context, opts ...ScopeOption) error {
-	opt := new(scopeOptions)
+	opt := &scopeOptions{Namespace: c.opt.Namespace}
 	opt.Set(opts...)
 	if err := opt.Namespace.validate(); err != nil {
 		return err
@@ -70,7 +77,7 @@ func (c *Client) Truncate(ctx context.Context, opts ...ScopeOption) error {
 func (c *Client) Len(ctx context.Context, opts ...ScopeOption) (int64, error) {
 	var cnt int64
 
-	opt := new(scopeOptions)
+	opt := &scopeOptions{Namespace: c.opt.Namespace}
 	opt.Set(opts...)
 	if err := opt.Namespace.validate(); err != nil {
 		return cnt, err
@@ -89,7 +96,7 @@ func (c *Client) Len(ctx context.Context, opts ...ScopeOption) (int64, error) {
 func (c *Client) MinCreatedAt(ctx context.Context, opts ...ScopeOption) (time.Time, error) {
 	var ts pq.NullTime
 
-	opt := new(scopeOptions)
+	opt := &scopeOptions{Namespace: c.opt.Namespace}
 	opt.Set(opts...)
 	if err := opt.Namespace.validate(); err != nil {
 		return ts.Time, err
@@ -111,6 +118,9 @@ func (c *Client) Push(ctx context.Context, task *Task) error {
 		return err
 	}
 
+	if task.Namespace == "" && c.opt.Namespace != "" {
+		task.Namespace = string(c.opt.Namespace)
+	}
 	if len(task.Payload) == 0 {
 		task.Payload = json.RawMessage{'{', '}'}
 	}
@@ -170,7 +180,7 @@ func (c *Client) Claim(ctx context.Context, id uuid.UUID) (*Claim, error) {
 // Shift locks and returns the task with the highest priority. It may return
 // ErrNoTask.
 func (c *Client) Shift(ctx context.Context, opts ...ScopeOption) (*Claim, error) {
-	opt := new(scopeOptions)
+	opt := &scopeOptions{Namespace: c.opt.Namespace}
 	opt.Set(opts...)
 	if err := opt.Namespace.validate(); err != nil {
 		return nil, err
@@ -198,7 +208,7 @@ func (c *Client) Shift(ctx context.Context, opts ...ScopeOption) (*Claim, error)
 
 // List lists all tasks in the queue.
 func (c *Client) List(ctx context.Context, opts ...ListOption) ([]*TaskDetails, error) {
-	opt := new(listOptions)
+	opt := &listOptions{Namespace: c.opt.Namespace}
 	opt.Set(opts...)
 	if err := opt.Namespace.validate(); err != nil {
 		return nil, err
