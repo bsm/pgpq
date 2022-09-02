@@ -68,11 +68,6 @@ func (o *scopeOptions) Set(opts ...ScopeOption) {
 	}
 }
 
-func (o *scopeOptions) Clone() *scopeOptions {
-	c := *o
-	return &c
-}
-
 // ScopeOption can be applied when scoping results.
 type ScopeOption interface {
 	applyScopeOption(*scopeOptions)
