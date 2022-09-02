@@ -43,8 +43,8 @@ func Connect(ctx context.Context, url string, opts ...ScopeOption) (*Client, err
 // Close() will not close the underlying connection.
 func Wrap(ctx context.Context, db *sql.DB, opts ...ScopeOption) (*Client, error) {
 	opt := &scopeOptions{}
-	opt.Set(opts...)
-	if err := opt.Namespace.validate(); err != nil {
+	opt.set(opts...)
+	if err := opt.validate(); err != nil {
 		return nil, err
 	}
 
@@ -64,8 +64,8 @@ func Wrap(ctx context.Context, db *sql.DB, opts ...ScopeOption) (*Client, error)
 // please use with care.
 func (c *Client) Truncate(ctx context.Context, opts ...ScopeOption) error {
 	opt := &scopeOptions{Namespace: c.opt.Namespace}
-	opt.Set(opts...)
-	if err := opt.Namespace.validate(); err != nil {
+	opt.set(opts...)
+	if err := opt.validate(); err != nil {
 		return err
 	}
 
@@ -78,8 +78,8 @@ func (c *Client) Len(ctx context.Context, opts ...ScopeOption) (int64, error) {
 	var cnt int64
 
 	opt := &scopeOptions{Namespace: c.opt.Namespace}
-	opt.Set(opts...)
-	if err := opt.Namespace.validate(); err != nil {
+	opt.set(opts...)
+	if err := opt.validate(); err != nil {
 		return cnt, err
 	}
 
@@ -97,8 +97,8 @@ func (c *Client) MinCreatedAt(ctx context.Context, opts ...ScopeOption) (time.Ti
 	var ts pq.NullTime
 
 	opt := &scopeOptions{Namespace: c.opt.Namespace}
-	opt.Set(opts...)
-	if err := opt.Namespace.validate(); err != nil {
+	opt.set(opts...)
+	if err := opt.validate(); err != nil {
 		return ts.Time, err
 	}
 
@@ -181,8 +181,8 @@ func (c *Client) Claim(ctx context.Context, id uuid.UUID) (*Claim, error) {
 // ErrNoTask.
 func (c *Client) Shift(ctx context.Context, opts ...ScopeOption) (*Claim, error) {
 	opt := &scopeOptions{Namespace: c.opt.Namespace}
-	opt.Set(opts...)
-	if err := opt.Namespace.validate(); err != nil {
+	opt.set(opts...)
+	if err := opt.validate(); err != nil {
 		return nil, err
 	}
 
@@ -209,11 +209,11 @@ func (c *Client) Shift(ctx context.Context, opts ...ScopeOption) (*Claim, error)
 // List lists all tasks in the queue.
 func (c *Client) List(ctx context.Context, opts ...ListOption) ([]*TaskDetails, error) {
 	opt := &listOptions{Namespace: c.opt.Namespace}
-	opt.Set(opts...)
-	if err := opt.Namespace.validate(); err != nil {
+	opt.set(opts...)
+	if err := opt.validate(); err != nil {
 		return nil, err
 	}
-	limit := opt.GetLimit()
+	limit := opt.getLimit()
 
 	rows, err := c.stmt.list.QueryContext(ctx, opt.Namespace, limit, opt.Offset)
 	if err != nil {
