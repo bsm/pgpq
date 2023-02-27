@@ -117,6 +117,7 @@ type Task struct {
 	Namespace string
 	Priority  int16
 	Payload   json.RawMessage
+	NotBefore time.Time
 }
 
 func (t *Task) validate() error {
@@ -136,7 +137,19 @@ func (td *TaskDetails) scan(rows interface{ Scan(...interface{}) error }) error 
 		&td.Namespace,
 		&td.Priority,
 		&td.Payload,
+		&td.NotBefore,
 		&td.CreatedAt,
 		&td.UpdatedAt,
 	)
+}
+
+// ----------------------------------------------------------------------------
+
+var unixZero = time.Unix(0, 0).UTC()
+
+func coalesceTime(t1, t2 time.Time) time.Time {
+	if !t1.IsZero() {
+		return t1
+	}
+	return t2
 }

@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"time"
 
 	"github.com/bsm/pgpq"
 	"github.com/google/uuid"
@@ -12,6 +13,7 @@ import (
 func Example() {
 	ctx := context.Background()
 	url := "postgres://localhost/pgpq_test?sslmode=disable" // `?sslmode=verify-ca` recommended for production
+
 	if v := os.Getenv("DATABASE_URL"); v != "" {
 		url = v
 	}
@@ -28,7 +30,7 @@ func Example() {
 		panic(err)
 	}
 
-	// push three tasks into the queue
+	// push some tasks into the queue
 	if err := client.Push(ctx, &pgpq.Task{
 		Priority: 3,
 		Payload:  []byte(`{"foo":1}`),
@@ -44,6 +46,12 @@ func Example() {
 	}
 	if err := client.Push(ctx, &pgpq.Task{
 		Payload: []byte(`{"baz":3}`),
+	}); err != nil {
+		panic(err)
+	}
+	if err := client.Push(ctx, &pgpq.Task{
+		Payload:   []byte(`{"baz":4}`),
+		NotBefore: time.Now().Add(time.Minute), // delay this task for 1m
 	}); err != nil {
 		panic(err)
 	}
