@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"testing"
+	"time"
 
 	. "github.com/bsm/pgpq"
 	"github.com/google/uuid"
@@ -234,6 +235,33 @@ func TestClient_Shift_thenDone(t *testing.T) {
 	}
 }
 
+func TestClient_Shift_delayed(t *testing.T) {
+	later := mockNow.Add(time.Minute)
+	ctx := context.Background()
+	truncate(ctx, t)
+	task := seedDelayed(ctx, t, later)
+
+	// no tasks visible yet
+	_, err := client.Shift(ctx)
+	if err != ErrNoTask {
+		t.Fatalf("expected ErrNoTask, got %v", err)
+	}
+
+	timeTravel(later, func() {
+		// task becomes visible
+
+		claim, err := client.Shift(ctx)
+		if err != nil {
+			t.Fatalf("expected no error, got %v", err)
+		}
+		defer claim.Release(ctx)
+
+		if exp, got := task.ID, claim.ID; exp != got {
+			t.Errorf("expected %v, got %v", exp, got)
+		}
+	})
+}
+
 func TestClient_Len(t *testing.T) {
 	ctx := context.Background()
 	seedTriple(ctx, t)
@@ -273,6 +301,29 @@ func TestClient_Len(t *testing.T) {
 	} else if exp := int64(0); exp != got {
 		t.Errorf("expected %v, got %v", exp, got)
 	}
+}
+
+func TestClient_Len_delayed(t *testing.T) {
+	later := mockNow.Add(time.Minute)
+	ctx := context.Background()
+	truncate(ctx, t)
+	seedDelayed(ctx, t, later)
+
+	// no tasks visible yet
+	if got, err := client.Len(ctx); err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	} else if exp := int64(0); exp != got {
+		t.Errorf("expected %v, got %v", exp, got)
+	}
+
+	timeTravel(later, func() {
+		// delayed task becomes visible
+		if got, err := client.Len(ctx); err != nil {
+			t.Fatalf("expected no error, got %v", err)
+		} else if exp := int64(1); exp != got {
+			t.Errorf("expected %v, got %v", exp, got)
+		}
+	})
 }
 
 func TestClient_MinCreatedAt(t *testing.T) {
@@ -325,6 +376,27 @@ func TestClient_MinCreatedAt(t *testing.T) {
 	if _, err := client.MinCreatedAt(ctx); !errors.Is(err, ErrNoTask) {
 		t.Errorf("expected %v, got %v", ErrNoTask, err)
 	}
+}
+
+func TestClient_MinCreatedAt_delayed(t *testing.T) {
+	later := mockNow.Add(time.Minute)
+	ctx := context.Background()
+	truncate(ctx, t)
+	seedDelayed(ctx, t, later)
+
+	// no tasks "visible" yet
+	if _, err := client.MinCreatedAt(ctx); err != ErrNoTask {
+		t.Fatalf("expected ErrNoTask error, got %v", err)
+	}
+
+	timeTravel(later, func() {
+		// delayed task becomes visible
+		if got, err := client.MinCreatedAt(ctx); err != nil {
+			t.Fatalf("expected no error, got %v", err)
+		} else if exp := mockNow; !exp.Equal(got) {
+			t.Errorf("expected %v, got %v", exp, got)
+		}
+	})
 }
 
 func doTask(ctx context.Context) error {

@@ -7,6 +7,7 @@ import (
 	"errors"
 	"time"
 
+	"github.com/benbjohnson/clock"
 	"github.com/google/uuid"
 	"github.com/lib/pq"
 )
@@ -19,11 +20,13 @@ type Client struct {
 	}
 	opt   *scopeOptions
 	ownDB bool
+	clock clock.Clock
 }
 
 // Connect connects to a PG instance using a URL.
 // Example:
-//   postgres://user:secret@test.host:5432/mydb?sslmode=verify-ca
+//
+//	postgres://user:secret@test.host:5432/mydb?sslmode=verify-ca
 func Connect(ctx context.Context, url string, opts ...ScopeOption) (*Client, error) {
 	db, err := sql.Open("postgres", url)
 	if err != nil {
@@ -52,7 +55,7 @@ func Wrap(ctx context.Context, db *sql.DB, opts ...ScopeOption) (*Client, error)
 		return nil, err
 	}
 
-	c := &Client{db: db, opt: opt}
+	c := &Client{db: db, opt: opt, clock: clock.New()}
 	if err := c.prepareStmt(ctx); err != nil {
 		_ = c.Close()
 		return nil, err
@@ -73,7 +76,7 @@ func (c *Client) Truncate(ctx context.Context, opts ...ScopeOption) error {
 	return err
 }
 
-// Len returns the queue length. This includes pending and running tasks.
+// Len returns the queue length. This counts all the non-delayed tasks.
 func (c *Client) Len(ctx context.Context, opts ...ScopeOption) (int64, error) {
 	var cnt int64
 
@@ -84,15 +87,18 @@ func (c *Client) Len(ctx context.Context, opts ...ScopeOption) (int64, error) {
 	}
 
 	if err := c.db.
-		QueryRowContext(ctx, `SELECT COUNT(*) FROM pgpq_tasks WHERE namespace = $1`, opt.Namespace).
+		QueryRowContext(ctx, `SELECT COUNT(*) FROM pgpq_tasks WHERE namespace = $1 AND not_before <= $2`,
+			opt.Namespace,
+			c.clock.Now(),
+		).
 		Scan(&cnt); err != nil {
 		return cnt, err
 	}
 	return cnt, nil
 }
 
-// MinCreatedAt returns created timestamp of the oldest task in the queue. It
-// may return ErrNoTask.
+// MinCreatedAt returns created timestamp of the oldest non-delayed task in the queue.
+// It may return ErrNoTask.
 func (c *Client) MinCreatedAt(ctx context.Context, opts ...ScopeOption) (time.Time, error) {
 	var ts pq.NullTime
 
@@ -103,7 +109,10 @@ func (c *Client) MinCreatedAt(ctx context.Context, opts ...ScopeOption) (time.Ti
 	}
 
 	if err := c.db.
-		QueryRowContext(ctx, `SELECT MIN(created_at) FROM pgpq_tasks WHERE namespace = $1`, opt.Namespace).
+		QueryRowContext(ctx, `SELECT MIN(created_at) FROM pgpq_tasks WHERE namespace = $1 AND not_before <= $2`,
+			opt.Namespace,
+			c.clock.Now(),
+		).
 		Scan(&ts); err != nil {
 		return ts.Time, err
 	} else if !ts.Valid {
@@ -125,11 +134,13 @@ func (c *Client) Push(ctx context.Context, task *Task) error {
 		task.Payload = json.RawMessage{'{', '}'}
 	}
 
+	now := c.clock.Now()
+
 	var row *sql.Row
 	if task.ID == uuid.Nil {
-		row = c.stmt.push.QueryRowContext(ctx, task.Namespace, task.Priority, task.Payload)
+		row = c.stmt.push.QueryRowContext(ctx, task.Namespace, task.Priority, task.Payload, task.NotBefore, now, now)
 	} else {
-		row = c.stmt.pushWithID.QueryRowContext(ctx, task.ID, task.Namespace, task.Priority, task.Payload)
+		row = c.stmt.pushWithID.QueryRowContext(ctx, task.ID, task.Namespace, task.Priority, task.Payload, task.NotBefore, now, now)
 	}
 
 	if err := row.Scan(&task.ID); err != nil {
@@ -162,7 +173,7 @@ func (c *Client) Claim(ctx context.Context, id uuid.UUID) (*Claim, error) {
 		return nil, err
 	}
 
-	claim := &Claim{tx: tx, update: c.stmt.update, done: c.stmt.done}
+	claim := c.newClaim(tx)
 	row := tx.
 		StmtContext(ctx, c.stmt.claim).
 		QueryRowContext(ctx, id)
@@ -177,8 +188,8 @@ func (c *Client) Claim(ctx context.Context, id uuid.UUID) (*Claim, error) {
 	return claim, nil
 }
 
-// Shift locks and returns the task with the highest priority. It may return
-// ErrNoTask.
+// Shift locks and returns the immediately shift-able task (i.e., excluding delayed) with the highest priority.
+// It may return ErrNoTask.
 func (c *Client) Shift(ctx context.Context, opts ...ScopeOption) (*Claim, error) {
 	opt := &scopeOptions{Namespace: c.opt.Namespace}
 	opt.set(opts...)
@@ -191,10 +202,10 @@ func (c *Client) Shift(ctx context.Context, opts ...ScopeOption) (*Claim, error)
 		return nil, err
 	}
 
-	claim := &Claim{tx: tx, update: c.stmt.update, done: c.stmt.done}
+	claim := c.newClaim(tx)
 	row := tx.
 		StmtContext(ctx, c.stmt.shift).
-		QueryRowContext(ctx, opt.Namespace)
+		QueryRowContext(ctx, opt.Namespace, c.clock.Now())
 	if err := claim.TaskDetails.scan(row); err != nil {
 		_ = tx.Rollback()
 
@@ -206,7 +217,7 @@ func (c *Client) Shift(ctx context.Context, opts ...ScopeOption) (*Claim, error)
 	return claim, nil
 }
 
-// List lists all tasks in the queue.
+// List lists all tasks (incl. delayed) in the queue.
 func (c *Client) List(ctx context.Context, opts ...ListOption) ([]*TaskDetails, error) {
 	opt := &listOptions{Namespace: c.opt.Namespace}
 	opt.set(opts...)
@@ -285,4 +296,13 @@ func (c *Client) prepareStmt(ctx context.Context) (err error) {
 		return
 	}
 	return
+}
+
+func (c *Client) newClaim(tx *sql.Tx) *Claim {
+	return &Claim{
+		tx:     tx,
+		update: c.stmt.update,
+		done:   c.stmt.done,
+		clock:  c.clock,
+	}
 }

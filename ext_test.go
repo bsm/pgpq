@@ -1,6 +1,11 @@
 package pgpq
 
-import "context"
+import (
+	"context"
+	"time"
+
+	"github.com/benbjohnson/clock"
+)
 
 // SchemaVersion returns the current schema version.
 func (c *Client) SchemaVersion(ctx context.Context) (string, error) {
@@ -11,4 +16,11 @@ func (c *Client) SchemaVersion(ctx context.Context) (string, error) {
 		return "", err
 	}
 	return version, nil
+}
+
+// SetCurrentTime sets the (mock) current time for this Client.
+func (c *Client) SetCurrentTime(t time.Time) {
+	clk := clock.NewMock()
+	clk.Set(t)
+	c.clock = clk
 }

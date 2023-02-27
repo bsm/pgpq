@@ -3,6 +3,8 @@ package pgpq
 import (
 	"context"
 	"database/sql"
+
+	"github.com/benbjohnson/clock"
 )
 
 // Claim contains a claim on a task. The owner of the claim has an exclusive
@@ -12,6 +14,7 @@ type Claim struct {
 	TaskDetails
 	tx           *sql.Tx
 	update, done *sql.Stmt
+	clock        clock.Clock
 }
 
 // Release releases the claim and returns the task back to the queue.
@@ -28,7 +31,7 @@ func (tc *Claim) Update(ctx context.Context) error {
 
 	_, err := tc.tx.
 		StmtContext(ctx, tc.update).
-		ExecContext(ctx, tc.Namespace, tc.Priority, tc.Payload, tc.ID)
+		ExecContext(ctx, tc.Namespace, tc.Priority, tc.Payload, tc.NotBefore, tc.clock.Now(), tc.ID)
 	if err != nil {
 		return err
 	}

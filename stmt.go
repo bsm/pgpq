@@ -2,14 +2,14 @@ package pgpq
 
 const (
 	stmtPush = `
-		INSERT INTO pgpq_tasks (namespace, priority, payload)
-		VALUES ($1, $2, $3)
+		INSERT INTO pgpq_tasks (namespace, priority, payload, not_before, created_at, updated_at)
+		VALUES ($1, $2, $3, $4, $5, $6)
 		RETURNING id
 	`
 
 	stmtPushWithID = `
-		INSERT INTO pgpq_tasks (id, namespace, priority, payload)
-		VALUES ($1, $2, $3, $4)
+		INSERT INTO pgpq_tasks (id, namespace, priority, payload, not_before, created_at, updated_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7)
 		RETURNING id
 	`
 
@@ -19,6 +19,7 @@ const (
 			namespace,
 			priority,
 			payload,
+			not_before,
 			created_at,
 			updated_at
 		FROM pgpq_tasks
@@ -31,10 +32,12 @@ const (
 			namespace,
 			priority,
 			payload,
+			not_before,
 			created_at,
 			updated_at
 		FROM pgpq_tasks
 		WHERE namespace = $1
+			AND not_before <= $2
 		ORDER BY
 			priority DESC,
 			updated_at ASC
@@ -48,6 +51,7 @@ const (
 			namespace,
 			priority,
 			payload,
+			not_before,
 			created_at,
 			updated_at
 		FROM pgpq_tasks
@@ -62,6 +66,7 @@ const (
 			namespace,
 			priority,
 			payload,
+			not_before,
 			created_at,
 			updated_at
 		FROM pgpq_tasks
@@ -79,8 +84,9 @@ const (
 			namespace  = $1,
 			priority   = $2,
 			payload    = $3,
-			updated_at = NOW()
-		WHERE id = $4
+			not_before = $4,
+			updated_at = $5
+		WHERE id = $6
 	`
 
 	stmtDone = `

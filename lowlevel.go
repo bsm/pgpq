@@ -12,7 +12,7 @@ import (
 //go:embed schema.sql
 var embedFS embed.FS
 
-const targetVersion = 3
+const targetVersion = 4
 
 func validateConn(ctx context.Context, db *sql.DB) error {
 	if err := checkServerVersion(ctx, db); err != nil {

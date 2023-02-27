@@ -117,6 +117,7 @@ type Task struct {
 	Namespace string
 	Priority  int16
 	Payload   json.RawMessage
+	NotBefore time.Time
 }
 
 func (t *Task) validate() error {
@@ -136,6 +137,7 @@ func (td *TaskDetails) scan(rows interface{ Scan(...interface{}) error }) error 
 		&td.Namespace,
 		&td.Priority,
 		&td.Payload,
+		&td.NotBefore,
 		&td.CreatedAt,
 		&td.UpdatedAt,
 	)

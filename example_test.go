@@ -12,6 +12,7 @@ import (
 func Example() {
 	ctx := context.Background()
 	url := "postgres://localhost/pgpq_test?sslmode=disable" // `?sslmode=verify-ca` recommended for production
+
 	if v := os.Getenv("DATABASE_URL"); v != "" {
 		url = v
 	}
