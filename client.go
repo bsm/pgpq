@@ -188,7 +188,7 @@ func (c *Client) Claim(ctx context.Context, id uuid.UUID) (*Claim, error) {
 	return claim, nil
 }
 
-// Shift locks and returns the immediately shift-able task (i.e., excluding delayed) with the highest priority.
+// Shift locks and returns the non-delayed task with the highest priority.
 // It may return ErrNoTask.
 func (c *Client) Shift(ctx context.Context, opts ...ScopeOption) (*Claim, error) {
 	opt := &scopeOptions{Namespace: c.opt.Namespace}
