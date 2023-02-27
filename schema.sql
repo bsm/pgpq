@@ -19,7 +19,7 @@ CREATE TABLE IF NOT EXISTS pgpq_tasks (
   created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
   payload JSONB NOT NULL DEFAULT '{}',
-  not_before TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
+  not_before TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT TO_TIMESTAMP(0)
 );
 
 CREATE INDEX IF NOT EXISTS idx_pgpq_tasks_namespace ON pgpq_tasks (namespace ASC);
@@ -28,7 +28,7 @@ CREATE INDEX IF NOT EXISTS idx_pgpq_tasks_created_at ON pgpq_tasks (created_at A
 
 CREATE INDEX IF NOT EXISTS idx_pgpq_tasks_priority_order ON pgpq_tasks (priority DESC, updated_at ASC);
 
-ALTER TABLE pgpq_tasks ADD COLUMN IF NOT EXISTS not_before TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW();
+ALTER TABLE pgpq_tasks ADD COLUMN IF NOT EXISTS not_before TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT TO_TIMESTAMP(0);
 
 CREATE INDEX IF NOT EXISTS idx_pgpq_tasks_not_before ON pgpq_tasks (not_before ASC);
 

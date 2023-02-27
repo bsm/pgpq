@@ -31,7 +31,7 @@ func (tc *Claim) Update(ctx context.Context) error {
 
 	_, err := tc.tx.
 		StmtContext(ctx, tc.update).
-		ExecContext(ctx, tc.Namespace, tc.Priority, tc.Payload, tc.NotBefore, tc.clock.Now(), tc.ID)
+		ExecContext(ctx, tc.Namespace, tc.Priority, tc.Payload, coalesceTime(tc.NotBefore, unixZero), tc.clock.Now(), tc.ID)
 	if err != nil {
 		return err
 	}

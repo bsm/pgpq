@@ -142,3 +142,14 @@ func (td *TaskDetails) scan(rows interface{ Scan(...interface{}) error }) error 
 		&td.UpdatedAt,
 	)
 }
+
+// ----------------------------------------------------------------------------
+
+var unixZero = time.Unix(0, 0).UTC()
+
+func coalesceTime(t1, t2 time.Time) time.Time {
+	if !t1.IsZero() {
+		return t1
+	}
+	return t2
+}

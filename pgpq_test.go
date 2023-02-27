@@ -21,7 +21,7 @@ var client *Client
 
 func TestMain(m *testing.M) {
 	ctx := context.Background()
-	url := "postgres://localhost/pgpq_test?sslmode=disable"
+	url := "postgres://localhost/pgpq_test?sslmode=disable&timezone=UTC"
 	if v := os.Getenv("DATABASE_URL"); v != "" {
 		url = v
 	}

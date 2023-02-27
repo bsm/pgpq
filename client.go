@@ -138,9 +138,9 @@ func (c *Client) Push(ctx context.Context, task *Task) error {
 
 	var row *sql.Row
 	if task.ID == uuid.Nil {
-		row = c.stmt.push.QueryRowContext(ctx, task.Namespace, task.Priority, task.Payload, task.NotBefore, now, now)
+		row = c.stmt.push.QueryRowContext(ctx, task.Namespace, task.Priority, task.Payload, coalesceTime(task.NotBefore, unixZero), now, now)
 	} else {
-		row = c.stmt.pushWithID.QueryRowContext(ctx, task.ID, task.Namespace, task.Priority, task.Payload, task.NotBefore, now, now)
+		row = c.stmt.pushWithID.QueryRowContext(ctx, task.ID, task.Namespace, task.Priority, task.Payload, coalesceTime(task.NotBefore, unixZero), now, now)
 	}
 
 	if err := row.Scan(&task.ID); err != nil {
