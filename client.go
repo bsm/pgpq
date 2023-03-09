@@ -14,10 +14,7 @@ import (
 
 // Client implements a queue client.
 type Client struct {
-	db   *sql.DB
-	stmt struct {
-		push, pushWithID, get, claim, shift, list, update, done *sql.Stmt
-	}
+	db    *sql.DB
 	opt   *scopeOptions
 	ownDB bool
 	clock clock.Clock
@@ -56,10 +53,6 @@ func Wrap(ctx context.Context, db *sql.DB, opts ...ScopeOption) (*Client, error)
 	}
 
 	c := &Client{db: db, opt: opt, clock: clock.New()}
-	if err := c.prepareStmt(ctx); err != nil {
-		_ = c.Close()
-		return nil, err
-	}
 	return c, nil
 }
 
@@ -138,9 +131,9 @@ func (c *Client) Push(ctx context.Context, task *Task) error {
 
 	var row *sql.Row
 	if task.ID == uuid.Nil {
-		row = c.stmt.push.QueryRowContext(ctx, task.Namespace, task.Priority, task.Payload, coalesceTime(task.NotBefore, unixZero), now, now)
+		row = c.db.QueryRowContext(ctx, stmtPush, task.Namespace, task.Priority, task.Payload, coalesceTime(task.NotBefore, unixZero), now, now)
 	} else {
-		row = c.stmt.pushWithID.QueryRowContext(ctx, task.ID, task.Namespace, task.Priority, task.Payload, coalesceTime(task.NotBefore, unixZero), now, now)
+		row = c.db.QueryRowContext(ctx, stmtPushWithID, task.ID, task.Namespace, task.Priority, task.Payload, coalesceTime(task.NotBefore, unixZero), now, now)
 	}
 
 	if err := row.Scan(&task.ID); err != nil {
@@ -156,7 +149,7 @@ func (c *Client) Push(ctx context.Context, task *Task) error {
 // Get returns a task by ID. It may return ErrNoTask.
 func (c *Client) Get(ctx context.Context, id uuid.UUID) (*TaskDetails, error) {
 	td := new(TaskDetails)
-	row := c.stmt.get.QueryRowContext(ctx, id)
+	row := c.db.QueryRowContext(ctx, stmtGet, id)
 	if err := td.scan(row); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, ErrNoTask
@@ -174,9 +167,7 @@ func (c *Client) Claim(ctx context.Context, id uuid.UUID) (*Claim, error) {
 	}
 
 	claim := c.newClaim(tx)
-	row := tx.
-		StmtContext(ctx, c.stmt.claim).
-		QueryRowContext(ctx, id)
+	row := tx.QueryRowContext(ctx, stmtClaim, id)
 	if err := claim.TaskDetails.scan(row); err != nil {
 		_ = tx.Rollback()
 
@@ -204,8 +195,7 @@ func (c *Client) Shift(ctx context.Context, opts ...ScopeOption) (*Claim, error)
 
 	claim := c.newClaim(tx)
 	row := tx.
-		StmtContext(ctx, c.stmt.shift).
-		QueryRowContext(ctx, opt.Namespace, c.clock.Now())
+		QueryRowContext(ctx, stmtShift, opt.Namespace, c.clock.Now())
 	if err := claim.TaskDetails.scan(row); err != nil {
 		_ = tx.Rollback()
 
@@ -226,7 +216,7 @@ func (c *Client) List(ctx context.Context, opts ...ListOption) ([]*TaskDetails, 
 	}
 	limit := opt.getLimit()
 
-	rows, err := c.stmt.list.QueryContext(ctx, opt.Namespace, limit, opt.Offset)
+	rows, err := c.db.QueryContext(ctx, stmtList, opt.Namespace, limit, opt.Offset)
 	if err != nil {
 		return nil, err
 	}
@@ -250,24 +240,6 @@ func (c *Client) List(ctx context.Context, opts ...ListOption) ([]*TaskDetails, 
 // Close closes the client connection.
 func (c *Client) Close() error {
 	var err error
-
-	for _, stmt := range []*sql.Stmt{
-		c.stmt.push,
-		c.stmt.pushWithID,
-		c.stmt.get,
-		c.stmt.claim,
-		c.stmt.shift,
-		c.stmt.list,
-		c.stmt.update,
-		c.stmt.done,
-	} {
-		if stmt != nil {
-			if e := stmt.Close(); e != nil {
-				err = e
-			}
-		}
-	}
-
 	if c.ownDB {
 		if e := c.db.Close(); e != nil {
 			err = e
@@ -277,32 +249,9 @@ func (c *Client) Close() error {
 	return err
 }
 
-func (c *Client) prepareStmt(ctx context.Context) (err error) {
-	if c.stmt.push, err = c.db.PrepareContext(ctx, stmtPush); err != nil {
-		return
-	} else if c.stmt.pushWithID, err = c.db.PrepareContext(ctx, stmtPushWithID); err != nil {
-		return
-	} else if c.stmt.get, err = c.db.PrepareContext(ctx, stmtGet); err != nil {
-		return
-	} else if c.stmt.claim, err = c.db.PrepareContext(ctx, stmtClaim); err != nil {
-		return
-	} else if c.stmt.shift, err = c.db.PrepareContext(ctx, stmtShift); err != nil {
-		return
-	} else if c.stmt.list, err = c.db.PrepareContext(ctx, stmtList); err != nil {
-		return
-	} else if c.stmt.update, err = c.db.PrepareContext(ctx, stmtUpdate); err != nil {
-		return
-	} else if c.stmt.done, err = c.db.PrepareContext(ctx, stmtDone); err != nil {
-		return
-	}
-	return
-}
-
 func (c *Client) newClaim(tx *sql.Tx) *Claim {
 	return &Claim{
-		tx:     tx,
-		update: c.stmt.update,
-		done:   c.stmt.done,
-		clock:  c.clock,
+		tx:    tx,
+		clock: c.clock,
 	}
 }
