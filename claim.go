@@ -12,9 +12,8 @@ import (
 // claim.
 type Claim struct {
 	TaskDetails
-	tx           *sql.Tx
-	update, done *sql.Stmt
-	clock        clock.Clock
+	tx    *sql.Tx
+	clock clock.Clock
 }
 
 // Release releases the claim and returns the task back to the queue.
@@ -29,9 +28,7 @@ func (tc *Claim) Update(ctx context.Context) error {
 		return err
 	}
 
-	_, err := tc.tx.
-		StmtContext(ctx, tc.update).
-		ExecContext(ctx, tc.Namespace, tc.Priority, tc.Payload, coalesceTime(tc.NotBefore, unixZero), tc.clock.Now(), tc.ID)
+	_, err := tc.tx.ExecContext(ctx, stmtUpdate, tc.Namespace, tc.Priority, tc.Payload, coalesceTime(tc.NotBefore, unixZero), tc.clock.Now(), tc.ID)
 	if err != nil {
 		return err
 	}
@@ -41,9 +38,7 @@ func (tc *Claim) Update(ctx context.Context) error {
 
 // Done marks the task as done and removes it from the queue.
 func (tc *Claim) Done(ctx context.Context) error {
-	_, err := tc.tx.
-		StmtContext(ctx, tc.done).
-		ExecContext(ctx, tc.ID)
+	_, err := tc.tx.ExecContext(ctx, stmtDone, tc.ID)
 	if err != nil {
 		return err
 	}
