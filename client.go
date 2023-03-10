@@ -9,7 +9,8 @@ import (
 
 	"github.com/benbjohnson/clock"
 	"github.com/google/uuid"
-	"github.com/lib/pq"
+	"github.com/jackc/pgx/v5/pgconn"
+	_ "github.com/jackc/pgx/v5/stdlib" // support pgx connections
 )
 
 // Client implements a queue client.
@@ -25,7 +26,7 @@ type Client struct {
 //
 //	postgres://user:secret@test.host:5432/mydb?sslmode=verify-ca
 func Connect(ctx context.Context, url string, opts ...ScopeOption) (*Client, error) {
-	db, err := sql.Open("postgres", url)
+	db, err := sql.Open("pgx", url)
 	if err != nil {
 		return nil, err
 	}
@@ -93,7 +94,7 @@ func (c *Client) Len(ctx context.Context, opts ...ScopeOption) (int64, error) {
 // MinCreatedAt returns created timestamp of the oldest non-delayed task in the queue.
 // It may return ErrNoTask.
 func (c *Client) MinCreatedAt(ctx context.Context, opts ...ScopeOption) (time.Time, error) {
-	var ts pq.NullTime
+	var ts sql.NullTime
 
 	opt := &scopeOptions{Namespace: c.opt.Namespace}
 	opt.set(opts...)
@@ -131,14 +132,14 @@ func (c *Client) Push(ctx context.Context, task *Task) error {
 
 	var row *sql.Row
 	if task.ID == uuid.Nil {
-		row = c.db.QueryRowContext(ctx, stmtPush, task.Namespace, task.Priority, task.Payload, coalesceTime(task.NotBefore, unixZero), now, now)
+		row = c.db.QueryRowContext(ctx, stmtPush, task.Namespace, task.Priority, unsafeString(task.Payload), coalesceTime(task.NotBefore, unixZero), now, now)
 	} else {
-		row = c.db.QueryRowContext(ctx, stmtPushWithID, task.ID, task.Namespace, task.Priority, task.Payload, coalesceTime(task.NotBefore, unixZero), now, now)
+		row = c.db.QueryRowContext(ctx, stmtPushWithID, task.ID, task.Namespace, task.Priority, unsafeString(task.Payload), coalesceTime(task.NotBefore, unixZero), now, now)
 	}
 
 	if err := row.Scan(&task.ID); err != nil {
-		var dbErr *pq.Error
-		if errors.As(err, &dbErr) && dbErr.Code == "23505" && dbErr.Constraint == "pgpq_tasks_pkey" {
+		var pgErr *pgconn.PgError
+		if errors.As(err, &pgErr) && pgErr.Code == "23505" && pgErr.ConstraintName == "pgpq_tasks_pkey" {
 			return ErrDuplicateID
 		}
 		return err
