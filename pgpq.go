@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"time"
+	"unsafe"
 
 	"github.com/google/uuid"
 )
@@ -152,4 +153,8 @@ func coalesceTime(t1, t2 time.Time) time.Time {
 		return t1
 	}
 	return t2
+}
+
+func unsafeString(p []byte) string {
+	return unsafe.String(unsafe.SliceData(p), len(p))
 }

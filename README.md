@@ -20,7 +20,11 @@ import (
 
 func main() {
 	ctx := context.Background()
-	url := "postgres://localhost/pgpq_test?sslmode=disable"	// `?sslmode=verify-ca` recommended for production
+
+	// connection URL:
+	// - use `sslmode=verify-ca` for production
+	// - use `default_query_exec_mode=simple_protocol` in combination with proxies
+	url := "postgres://localhost/pgpq_test?sslmode=disable"
 
 	if v := os.Getenv("DATABASE_URL"); v != "" {
 		url = v

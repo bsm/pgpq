@@ -69,12 +69,12 @@ func TestClient_List(t *testing.T) {
 	normTaskDetails(tasks...)
 	assertEqual(t, tasks, []*TaskDetails{
 		{
-			Task:      Task{ID: task1.ID, Priority: 3, Payload: json.RawMessage(`{"foo":1}`), NotBefore: time.Unix(0, 0).UTC()},
+			Task:      Task{ID: task1.ID, Priority: 3, Payload: json.RawMessage(`{"foo":1}`), NotBefore: time.Unix(0, 0)},
 			CreatedAt: mockNow,
 			UpdatedAt: mockNow,
 		},
 		{
-			Task:      Task{ID: task2.ID, Priority: 2, Payload: json.RawMessage(`{"bar":2}`), NotBefore: time.Unix(0, 0).UTC()},
+			Task:      Task{ID: task2.ID, Priority: 2, Payload: json.RawMessage(`{"bar":2}`), NotBefore: time.Unix(0, 0)},
 			CreatedAt: mockNow,
 			UpdatedAt: mockNow,
 		},
@@ -90,7 +90,7 @@ func TestClient_List(t *testing.T) {
 	normTaskDetails(tasks...)
 	assertEqual(t, tasks, []*TaskDetails{
 		{
-			Task:      Task{ID: task3.ID, Namespace: "baz", Payload: json.RawMessage(`{}`), NotBefore: time.Unix(0, 0).UTC()},
+			Task:      Task{ID: task3.ID, Namespace: "baz", Payload: json.RawMessage(`{}`), NotBefore: time.Unix(0, 0)},
 			CreatedAt: mockNow,
 			UpdatedAt: mockNow,
 		},
